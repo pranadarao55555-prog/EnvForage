@@ -1,0 +1,272 @@
+"""
+Unit tests for envforge-agent.
+
+Tests use JSON fixtures to avoid any live system detection calls.
+All detector tests mock subprocess / platform — no nvidia-smi required.
+"""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from envforge_agent.schemas import DiagnosticReport
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
+
+
+def load_fixture(name: str) -> dict:
+    return json.loads((FIXTURES_DIR / name).read_text(encoding="utf-8"))
+
+
+# ── Schema round-trip tests ───────────────────────────────────────────────────
+
+class TestDiagnosticReportSchema:
+    """Validate that fixture JSON round-trips through the Pydantic schema."""
+
+    @pytest.mark.parametrize("fixture_file", [
+        "linux_gpu.json",
+        "wsl_cuda.json",
+        "linux_no_cuda.json",
+        "windows_gpu.json",
+    ])
+    def test_fixture_parses_cleanly(self, fixture_file: str) -> None:
+        """Every fixture must deserialize into a valid DiagnosticReport."""
+        raw = (FIXTURES_DIR / fixture_file).read_text(encoding="utf-8")
+        report = DiagnosticReport.model_validate_json(raw)
+        assert report.agent_version == "0.1.0"
+        assert report.os.name
+        assert report.cpu.cores >= 1
+        assert report.cpu.threads >= report.cpu.cores
+        assert report.ram.total_gb > 0
+
+    def test_linux_gpu_fixture(self) -> None:
+        data = load_fixture("linux_gpu.json")
+        report = DiagnosticReport.model_validate(data)
+
+        assert report.os.architecture == "x86_64"
+        assert report.os.wsl_version is None
+        assert len(report.gpus) == 1
+        assert report.gpus[0].name == "NVIDIA GeForce RTX 4090"
+        assert report.gpus[0].vram_gb == 24.0
+        assert report.cuda.version == "12.1"
+        assert report.cuda.cudnn_version == "8.9.0"
+        assert report.active_python is not None
+        assert report.active_python.version.startswith("3.11")
+
+    def test_wsl_fixture_has_wsl_version(self) -> None:
+        data = load_fixture("wsl_cuda.json")
+        report = DiagnosticReport.model_validate(data)
+
+        assert report.os.wsl_version == "WSL2"
+        assert report.cuda.version == "11.8"
+        assert report.gpus[0].driver_version == "527.86"
+
+    def test_no_cuda_fixture(self) -> None:
+        data = load_fixture("linux_no_cuda.json")
+        report = DiagnosticReport.model_validate(data)
+
+        assert report.gpus == []
+        assert report.cuda.version is None
+        assert report.cuda.toolkit_path is None
+
+    def test_windows_fixture(self) -> None:
+        data = load_fixture("windows_gpu.json")
+        report = DiagnosticReport.model_validate(data)
+
+        assert "Windows" in report.os.name
+        assert report.os.wsl_version is None
+        assert report.gpus[0].driver_version == "551.61"
+        assert report.cuda.version is None  # toolkit not installed yet
+
+    def test_to_json_produces_valid_json(self) -> None:
+        data = load_fixture("linux_gpu.json")
+        report = DiagnosticReport.model_validate(data)
+        json_str = report.to_json()
+        parsed = json.loads(json_str)
+        assert parsed["agent_version"] == "0.1.0"
+        assert "os" in parsed
+        assert "gpus" in parsed
+
+
+# ── OS Detector tests ─────────────────────────────────────────────────────────
+
+class TestOSDetector:
+    def test_detect_os_returns_os_info(self) -> None:
+        """detect_os() always returns an OSInfo — never raises."""
+        from envforge_agent.detectors.os_detector import detect_os
+        result = detect_os()
+        assert result.name
+        assert result.version
+        assert result.architecture
+
+    def test_wsl_detection_via_env(self) -> None:
+        from envforge_agent.detectors.os_detector import _detect_wsl
+        with patch.dict("os.environ", {"WSL_DISTRO_NAME": "Ubuntu"}):
+            result = _detect_wsl()
+        assert result == "WSL2"
+
+    def test_no_wsl_returns_none(self) -> None:
+        from envforge_agent.detectors.os_detector import _detect_wsl
+        # Patch env to remove WSL vars and /proc files to not exist
+        with patch.dict("os.environ", {}, clear=True):
+            with patch("builtins.open", side_effect=FileNotFoundError):
+                result = _detect_wsl()
+        assert result is None
+
+
+# ── GPU Detector tests ────────────────────────────────────────────────────────
+
+class TestGPUDetector:
+    def test_no_nvidia_smi_returns_empty(self) -> None:
+        from envforge_agent.detectors.gpu_detector import detect_gpus
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            result = detect_gpus()
+        assert result == []
+
+    def test_nvidia_smi_failure_returns_empty(self) -> None:
+        from envforge_agent.detectors.gpu_detector import detect_gpus
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stdout = ""
+        with patch("subprocess.run", return_value=mock_result):
+            result = detect_gpus()
+        assert result == []
+
+    def test_parses_single_gpu(self) -> None:
+        from envforge_agent.detectors.gpu_detector import detect_gpus
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "0, NVIDIA GeForce RTX 4090, 24576, 535.54.03\n"
+        with patch("subprocess.run", return_value=mock_result):
+            result = detect_gpus()
+        assert len(result) == 1
+        assert result[0].name == "NVIDIA GeForce RTX 4090"
+        assert result[0].vram_gb == pytest.approx(24.0, abs=0.1)
+        assert result[0].driver_version == "535.54.03"
+        assert result[0].index == 0
+
+    def test_parses_multi_gpu(self) -> None:
+        from envforge_agent.detectors.gpu_detector import detect_gpus
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = (
+            "0, NVIDIA GeForce RTX 4090, 24576, 535.54.03\n"
+            "1, NVIDIA GeForce RTX 4090, 24576, 535.54.03\n"
+        )
+        with patch("subprocess.run", return_value=mock_result):
+            result = detect_gpus()
+        assert len(result) == 2
+        assert result[1].index == 1
+
+    def test_vram_converted_from_mib_to_gb(self) -> None:
+        from envforge_agent.detectors.gpu_detector import detect_gpus
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "0, Test GPU, 8192, 535.0\n"  # 8192 MiB = 8.0 GB
+        with patch("subprocess.run", return_value=mock_result):
+            result = detect_gpus()
+        assert result[0].vram_gb == pytest.approx(8.0, abs=0.01)
+
+
+# ── CUDA Detector tests ───────────────────────────────────────────────────────
+
+class TestCUDADetector:
+    def test_no_cuda_returns_empty_info(self) -> None:
+        from envforge_agent.detectors.cuda_detector import detect_cuda
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            with patch("builtins.open", side_effect=FileNotFoundError):
+                with patch.dict("os.environ", {}, clear=True):
+                    result = detect_cuda()
+        assert result.version is None
+        assert result.toolkit_path is None
+
+    def test_nvcc_version_parsed(self) -> None:
+        from envforge_agent.detectors.cuda_detector import _nvcc_version
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "Cuda compilation tools, release 12.1, V12.1.105"
+        with patch("subprocess.run", return_value=mock_result):
+            result = _nvcc_version()
+        assert result == "12.1"
+
+    def test_nvcc_not_found_returns_none(self) -> None:
+        from envforge_agent.detectors.cuda_detector import _nvcc_version
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            result = _nvcc_version()
+        assert result is None
+
+    def test_cuda_path_env_version(self) -> None:
+        from envforge_agent.detectors.cuda_detector import _cuda_path_env_version
+        with patch.dict("os.environ", {"CUDA_PATH": r"C:\CUDA\v12.1"}):
+            result = _cuda_path_env_version()
+        assert result == "12.1"
+
+
+# ── Python Detector tests ─────────────────────────────────────────────────────
+
+class TestPythonDetector:
+    def test_active_python_detected(self) -> None:
+        """The current interpreter should always be detectable."""
+        from envforge_agent.detectors.python_detector import detect_python
+        installations, active = detect_python()
+        assert active is not None
+        assert active.version  # e.g. "3.11.9"
+        assert active.path
+        assert len(active.version.split(".")) >= 2
+
+    def test_installations_not_empty(self) -> None:
+        """At minimum, the current interpreter is in installations."""
+        from envforge_agent.detectors.python_detector import detect_python
+        installations, _ = detect_python()
+        assert len(installations) >= 1
+
+    def test_inspector_parses_version(self) -> None:
+        from envforge_agent.detectors.python_detector import _inspect_python
+        import sys
+        result = _inspect_python(sys.executable)
+        assert result is not None
+        assert result.version
+        assert result.path == sys.executable or Path(result.path).resolve() == Path(sys.executable).resolve()
+
+
+# ── System Detector tests ─────────────────────────────────────────────────────
+
+class TestSystemDetector:
+    def test_cpu_detected(self) -> None:
+        from envforge_agent.detectors.system_detector import detect_cpu
+        result = detect_cpu()
+        assert result.brand
+        assert result.cores >= 1
+        assert result.threads >= result.cores
+
+    def test_ram_detected(self) -> None:
+        from envforge_agent.detectors.system_detector import detect_ram
+        result = detect_ram()
+        assert result.total_gb > 0
+        assert result.available_gb >= 0
+        assert result.available_gb <= result.total_gb
+
+
+# ── ReportBuilder integration test ───────────────────────────────────────────
+
+class TestReportBuilder:
+    def test_build_returns_valid_report(self) -> None:
+        """build() must always return a valid DiagnosticReport without raising."""
+        from envforge_agent.report import ReportBuilder
+        report = ReportBuilder().build()
+        assert isinstance(report, DiagnosticReport)
+        assert report.agent_version == "0.1.0"
+        assert report.os.name
+        assert report.cpu.cores >= 1
+
+    def test_build_serializes_to_json(self) -> None:
+        from envforge_agent.report import ReportBuilder
+        report = ReportBuilder().build()
+        json_str = report.to_json()
+        parsed = json.loads(json_str)
+        assert "agent_version" in parsed
+        assert "os" in parsed
+        assert "gpus" in parsed
