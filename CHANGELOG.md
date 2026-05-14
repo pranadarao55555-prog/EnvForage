@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-14
+
+### Added
+- **Phase 4 — Part 1**: OpenRouter LLM Provider.
+  - `OpenRouterProvider` class implementing `LLMProvider` ABC with async HTTP, JSON mode enforcement, exponential backoff retry (3 attempts), Pydantic response parsing, and token usage tracking.
+  - Provider factory `get_provider()` — reads `ENVFORGE_LLM_PROVIDER` env var and instantiates the correct provider with lazy imports.
+  - New config fields: `ai_max_tokens` (default 2048), `ai_temperature` (default 0.3).
+  - ADR-009: OpenRouter as Primary LLM Gateway.
+
 ## [0.3.0] - 2026-05-14
 
 ### Added

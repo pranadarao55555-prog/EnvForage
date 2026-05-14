@@ -276,12 +276,14 @@ are Phase 5 deliverables.
 
 ## Feature 5: AI Troubleshooting Layer
 
-### Status: 🔲 Skeleton implemented, full integration is Phase 4
+### Status: 🔶 In Progress (Phase 4)
 
-**Skeleton files implemented**:
+**Implemented files**:
 - `backend/app/ai/models.py` — `SuggestedFix`, `TroubleshootResponse` Pydantic models
-- `backend/app/ai/providers/base.py` — `LLMProvider` ABC
+- `backend/app/ai/providers/base.py` — `LLMProvider` ABC + `LLMProviderError`
 - `backend/app/ai/providers/mock.py` — deterministic `MockProvider` for testing
+- `backend/app/ai/providers/openrouter.py` — `OpenRouterProvider` (async HTTP, JSON mode, retry, Pydantic parsing)
+- `backend/app/ai/providers/__init__.py` — `get_provider()` factory function
 
 ### AI Provider Interface
 
@@ -295,10 +297,24 @@ class LLMProvider(ABC):
     ) -> T: ...
 ```
 
-### Planned Providers (Phase 4)
-- `OpenAIProvider` — GPT-4o / GPT-4-turbo
-- `OpenRouterProvider` — multi-model via OpenRouter
-- `OllamaProvider` — local inference, no data leaves device
+### Provider Implementations
+
+| Provider | Status | Model | Notes |
+|----------|--------|-------|-------|
+| `MockProvider` | ✅ Implemented | — | Deterministic responses for testing |
+| `OpenRouterProvider` | ✅ Implemented | Configurable (default: `meta-llama/llama-3-8b-instruct:free`) | Routes to 100+ models via OpenRouter API. See [ADR-009](./decisions/ADR-009-openrouter-primary-gateway.md). |
+| `OpenAIProvider` | 🔲 Planned | GPT-4o | Use OpenRouter with `openai/gpt-4o` model instead |
+| `OllamaProvider` | 🔲 Planned | Local Llama 3 | No data leaves device |
+
+### Provider Factory
+
+The active provider is selected by `ENVFORGE_LLM_PROVIDER` env var and instantiated via `get_provider()`:
+
+```python
+from app.ai.providers import get_provider
+provider = get_provider()  # Returns configured LLMProvider instance
+result = await provider.complete(system_prompt, user_msg, TroubleshootResponse)
+```
 
 ### Hard Safety Rules (Enforced in Phase 4)
 - AI output is ALWAYS passed through `SafetyFilter` before exposure

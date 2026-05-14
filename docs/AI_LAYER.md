@@ -1,8 +1,8 @@
 # EnvForge — AI Layer Design
 
-> **Version**: 0.1.0
-> **Status**: Planning
-> **Last Updated**: 2026-05-06
+> **Version**: 0.4.0
+> **Status**: Phase 4 — In Progress
+> **Last Updated**: 2026-05-14
 
 ---
 
@@ -46,12 +46,13 @@ class LLMProvider(ABC):
 ```
 
 Implementations:
-- `OpenAIProvider` — GPT-4o, GPT-4-turbo
-- `OpenRouterProvider` — Multi-model via OpenRouter
-- `OllamaProvider` — Local inference (Llama 3, Mistral) — no data leaves device
-- `MockProvider` — For testing; deterministic responses
+- `OpenRouterProvider` — Multi-model via OpenRouter (✅ Implemented). See [ADR-009](./decisions/ADR-009-openrouter-primary-gateway.md).
+- `MockProvider` — For testing; deterministic responses (✅ Implemented)
+- `OpenAIProvider` — GPT-4o, GPT-4-turbo (🔲 Planned — use OpenRouter with `openai/gpt-4o` instead)
+- `OllamaProvider` — Local inference (Llama 3, Mistral) — no data leaves device (🔲 Planned)
 
-The provider is configured via environment variable: `ENVFORGE_LLM_PROVIDER`.
+The provider is configured via environment variable: `ENVFORGE_LLM_PROVIDER`
+and instantiated via the factory function `get_provider()`.
 
 ---
 

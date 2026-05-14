@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     openrouter_model: str = "openai/gpt-4o"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3"
+    ai_max_tokens: int = 2048
+    ai_temperature: float = 0.3
 
     # ── Pagination ────────────────────────────────────────────
     default_page_size: int = 20

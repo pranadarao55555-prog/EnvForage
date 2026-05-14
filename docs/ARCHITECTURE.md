@@ -220,3 +220,4 @@ FastAPI → OpenRouter / LLM Provider (Phase 4)
 | [ADR-006](./decisions/ADR-006-sqlite-unit-tests.md) | SQLite for unit tests | Accepted |
 | [ADR-007](./decisions/ADR-007-dynamic-ui-compatibility-fields.md) | Dynamic UI for Script Wizard | Accepted |
 | [ADR-008](./decisions/ADR-008-safety-filter-negative-lookahead.md) | Safety Filter negative lookahead | Accepted |
+| [ADR-009](./decisions/ADR-009-openrouter-primary-gateway.md) | OpenRouter as primary LLM gateway | Accepted |

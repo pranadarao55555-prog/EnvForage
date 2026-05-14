@@ -123,9 +123,9 @@ on Windows, WSL2, and Ubuntu 22.04. ✅
 **Goal**: AI-assisted diagnosis and repair script generation.
 
 ### Deliverables
-- [ ] LLM provider abstraction (pluggable: OpenAI, OpenRouter, Ollama)
+- [x] LLM provider abstraction (pluggable: OpenAI, OpenRouter, Ollama)
 - [ ] Structured prompt builder (diagnostic context → prompt)
-- [ ] `SuggestedFix` response schema (Pydantic)
+- [x] `SuggestedFix` response schema (Pydantic)
 - [ ] Shell command safety filter
 - [ ] `POST /api/troubleshoot` endpoint
 - [ ] `POST /api/repair` endpoint (generates repair scripts)
