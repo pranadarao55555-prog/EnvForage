@@ -50,6 +50,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Standard HTTP 429 responses with `Retry-After` header.
   - X-Forwarded-For support for proxy deployments.
   - New config fields: `rate_limit_ai_rpm`, `rate_limit_repair_rpm`, `rate_limit_general_rpm`.
+- **Phase 4 — Part 8**: Tests & Integration.
+  - Comprehensive unit test suite for AI components (`test_models.py`, `test_prompts.py`, `test_rate_limit.py`, `test_repair_service.py`, `test_system_prompts.py`).
+  - Integration tests for the full repair pipeline (`test_ai_pipeline.py`) validating prompt generation, template rendering, and safety filter execution.
+  - 100% pass rate on 66 test cases.
 
 ## [0.3.0] - 2026-05-14
 

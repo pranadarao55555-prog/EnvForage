@@ -118,7 +118,7 @@ on Windows, WSL2, and Ubuntu 22.04. ✅
 
 ---
 
-## Phase 4 — AI Troubleshooting Layer
+## Phase 4 — AI Troubleshooting Layer [COMPLETED]
 
 **Goal**: AI-assisted diagnosis and repair script generation.
 
@@ -133,6 +133,7 @@ on Windows, WSL2, and Ubuntu 22.04. ✅
 - [x] Rate limiting (in-memory, Redis-swappable)
 
 **Exit Criteria**: Given a diagnostic JSON, AI returns structured fix suggestions.
+The frontend displays these and allows generating safe, filtered repair scripts. [COMPLETED]
 
 ---
 
