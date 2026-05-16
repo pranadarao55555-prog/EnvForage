@@ -12,7 +12,7 @@ import logging
 import time
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -148,6 +148,29 @@ class AITroubleshootService:
         )
 
         return llm_result
+
+    async def stream_troubleshoot(
+        self,
+        request: TroubleshootRequest,
+    ) -> AsyncIterator[str]:
+        """
+        Stream the AI troubleshooting response.
+        
+        This method skips database persistence for individual tokens to
+        minimize latency, but still builds the full prompt and uses the
+        configured LLM provider in streaming mode.
+        """
+        user_message = self._prompt_builder.build(request)
+        provider = get_provider()
+        
+        logger.info("Starting troubleshoot stream (provider=%s)", type(provider).__name__)
+        
+        async for chunk in provider.stream(
+            system_prompt=TROUBLESHOOT_SYSTEM_PROMPT,
+            user_message=user_message,
+            response_model=TroubleshootResponse,
+        ):
+            yield chunk
 
     # ── Private helpers ───────────────────────────────────────────────────
 
