@@ -129,6 +129,12 @@ def _print_report_summary(report: DiagnosticReport) -> None:
     else:
         table.add_row("CUDA", "[dim]Not detected[/]")
 
+    if report.rocm.version:
+        gcn = f" (GCN {report.rocm.gcn_arch})" if report.rocm.gcn_arch else ""
+        table.add_row("ROCm", f"{report.rocm.version}{gcn}")
+    else:
+        table.add_row("ROCm", "[dim]Not detected[/]")
+
     if report.active_python:
         py = report.active_python
         venv = " [dim](venv)[/]" if py.is_venv else ""

@@ -48,6 +48,11 @@ class CUDAInfo(BaseModel):
     nccl_version: str | None = None
 
 
+class ROCMInfo(BaseModel):
+    version: str | None = None       # e.g. "5.6"
+    gcn_arch: str | None = None      # e.g. "gfx1030"
+
+
 class PythonInfo(BaseModel):
     version: str                     # e.g. "3.11.9"
     path: str                        # Absolute path to python executable
@@ -69,6 +74,7 @@ class DiagnosticReport(BaseModel):
     ram: RAMInfo
     gpus: list[GPUInfo] = Field(default_factory=list)
     cuda: CUDAInfo = Field(default_factory=CUDAInfo)
+    rocm: ROCMInfo = Field(default_factory=ROCMInfo)
     python_installations: list[PythonInfo] = Field(default_factory=list)
     active_python: PythonInfo | None = None
 
