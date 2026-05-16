@@ -24,6 +24,7 @@ TEMPLATE_MAP: dict[str, str] = {
     "verify.sh":          "verify/verify_generic.sh.j2",
     "verify_torch.sh":    "verify/verify_torch.sh.j2",
     "verify_tf.sh":       "verify/verify_tf.sh.j2",
+    "environment.yml":      "config/environment.yml.j2",
 }
 
 # ── Profile-specific verify template mapping ───────────────────────────────────

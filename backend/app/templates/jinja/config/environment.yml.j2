@@ -1,0 +1,20 @@
+# ==============================================================================
+# EnvForge Generated environment.yml
+# Profile  : {{ profile.name }}
+# Python   : {{ python_version }}
+{% if cuda_version %}# CUDA     : {{ cuda_version }}
+{% endif %}# Generated: {{ generated_at }}
+# EnvForge : v{{ envforge_version }}
+#
+# Install with:
+#   conda env create -f environment.yml
+# ==============================================================================
+
+name: {{ profile.name }}
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python={{ python_version }}
+{% for pkg in packages %}  - {{ pkg.pip_spec }}
+{% endfor %}

@@ -113,6 +113,7 @@ class ProfileDetailSchema(ProfileSummarySchema):
 | `Dockerfile` | `config/dockerfile.j2` | Containerized environment |
 | `devcontainer.json` | `config/devcontainer.j2` | VS Code Dev Container config |
 | `verify_torch.sh` | `verify/verify_torch.sh.j2` | PyTorch CUDA verification |
+| `environment.yml` | `config/environment.yml.j2` | Conda environment export |
 
 ### Generation Pipeline (Implemented)
 
